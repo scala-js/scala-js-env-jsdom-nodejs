@@ -1,4 +1,4 @@
-package sbttest.withDOM
+package testproject
 
 import scala.scalajs.js
 

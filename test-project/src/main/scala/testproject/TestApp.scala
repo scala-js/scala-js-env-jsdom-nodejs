@@ -1,4 +1,4 @@
-package sbttest.withDOM
+package testproject
 
 object TestApp {
 
