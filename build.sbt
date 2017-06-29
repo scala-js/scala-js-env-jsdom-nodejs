@@ -72,7 +72,7 @@ lazy val `scalajs-env-jsdom-nodejs`: Project = project.in(file("jsdom-nodejs-env
 
     libraryDependencies ++= Seq(
       "org.scala-js" %% "scalajs-js-envs" % scalaJSVersion,
-      "org.scala-js" %% "scalajs-nodejs-env" % scalaJSVersion,
+      "org.scala-js" %% "scalajs-env-nodejs" % scalaJSVersion,
 
       "com.novocode" % "junit-interface" % "0.11" % "test",
       "org.scala-js" %% "scalajs-js-envs-test-kit" % scalaJSVersion % "test"
