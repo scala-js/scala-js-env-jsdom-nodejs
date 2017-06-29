@@ -20,13 +20,6 @@ install:
   - node --version
   # Of course we need jsdom
   - npm install jsdom@$JSDOM_VERSION
-  # While there is no published version of Scala.js 1.x, we have to locally build a snapshot.
-  - git clone https://github.com/scala-js/scala-js.git
-  - cd scala-js
-  - git checkout d25fa8bba708977c68c093fdbc50958368f9602f
-  - sbt ++$TRAVIS_SCALA_VERSION compiler/publishLocal jUnitPlugin/publishLocal library/publishLocal testInterface/publishLocal jUnitRuntime/publishLocal ir/publishLocal tools/publishLocal jsEnvs/publishLocal jsEnvsTestKit/publishLocal nodeJSEnv/publishLocal
-  - sbt ++2.10.6 ir/publishLocal tools/publishLocal jsEnvs/publishLocal nodeJSEnv/publishLocal testAdapter/publishLocal sbtPlugin/publishLocal
-  - cd ..
 script:
   - sbt ++$TRAVIS_SCALA_VERSION scalajs-env-jsdom-nodejs/test scalajs-env-jsdom-nodejs/doc
   - sbt ++$TRAVIS_SCALA_VERSION test-project/run test-project/test
