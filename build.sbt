@@ -2,8 +2,8 @@ inThisBuild(Seq(
   version := "1.0.0-SNAPSHOT",
   organization := "org.scala-js",
 
-  crossScalaVersions := Seq("2.10.6", "2.11.11", "2.12.2"),
-  scalaVersion := "2.11.11",
+  crossScalaVersions := Seq("2.12.4", "2.10.7", "2.11.12"),
+  scalaVersion := crossScalaVersions.value.head,
   scalacOptions ++= Seq("-deprecation", "-feature", "-Xfatal-warnings"),
 
   homepage := Some(url("https://www.scala-js.org/")),

@@ -1,19 +1,15 @@
 sudo: false
 language: scala
 scala:
-  - 2.10.6
-  - 2.11.11
-  - 2.12.2
+  - 2.10.7
+  - 2.11.12
+  - 2.12.4
 jdk:
   - oraclejdk8
 env:
   - JSDOM_VERSION=9.12.0
   - JSDOM_VERSION=10.0.0
 install:
-  # The default ivy resolution takes way too much time, and times out Travis builds.
-  # We use coursier instead.
-  - mkdir -p $HOME/.sbt/0.13/plugins/
-  - echo 'addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.0-RC3")' > $HOME/.sbt/0.13/plugins/coursier.sbt
   # We need a recent version of Node.js for jsdom
   - nvm install 6
   - nvm use 6
@@ -31,4 +27,3 @@ cache:
 before_cache:
   - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
   - find $HOME/.sbt -name "*.lock" -print -delete
-  - rm $HOME/.sbt/0.13/plugins/coursier.sbt
