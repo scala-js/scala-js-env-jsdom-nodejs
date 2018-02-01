@@ -1,5 +1,5 @@
 inThisBuild(Seq(
-  version := "1.0.0-SNAPSHOT",
+  version := "1.0.0-M3",
   organization := "org.scala-js",
 
   crossScalaVersions := Seq("2.12.4", "2.10.7", "2.11.12"),
