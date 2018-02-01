@@ -18,7 +18,10 @@ install:
   - npm install jsdom@$JSDOM_VERSION
 script:
   - sbt ++$TRAVIS_SCALA_VERSION scalajs-env-jsdom-nodejs/test scalajs-env-jsdom-nodejs/doc
-  - sbt ++$TRAVIS_SCALA_VERSION test-project/run test-project/test
+  - |
+      if [[ "${TRAVIS_SCALA_VERSION}" != "2.10.7" ]]; then
+        sbt ++$TRAVIS_SCALA_VERSION test-project/run test-project/test
+      fi
 cache:
   directories:
     - $HOME/.ivy2/cache

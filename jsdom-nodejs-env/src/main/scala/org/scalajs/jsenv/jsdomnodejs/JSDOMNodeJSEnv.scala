@@ -12,11 +12,11 @@ import scala.collection.immutable
 
 import java.io.OutputStream
 
-import org.scalajs.core.tools.io._
+import org.scalajs.io._
+import org.scalajs.io.JSUtils.escapeJS
+
 import org.scalajs.jsenv._
 import org.scalajs.jsenv.nodejs.AbstractNodeJSEnv
-
-import org.scalajs.core.ir.Utils.escapeJS
 
 class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends AbstractNodeJSEnv {
 
