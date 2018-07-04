@@ -8,138 +8,222 @@
 
 package org.scalajs.jsenv.jsdomnodejs
 
-import scala.collection.immutable
+import scala.annotation.tailrec
 
-import java.io.OutputStream
+import scala.collection.immutable
+import scala.util.control.NonFatal
+
+import java.io._
+import java.nio.file.{Files, StandardCopyOption}
+import java.net.URI
 
 import org.scalajs.io._
 import org.scalajs.io.JSUtils.escapeJS
 
 import org.scalajs.jsenv._
-import org.scalajs.jsenv.nodejs.AbstractNodeJSEnv
+import org.scalajs.jsenv.nodejs._
 
-class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends AbstractNodeJSEnv {
+class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
 
   def this() = this(JSDOMNodeJSEnv.Config())
 
-  protected def vmName: String = "Node.js with JSDOM"
+  val name: String = "Node.js with JSDOM"
 
-  protected def executable: String = config.executable
+  def start(input: Input, runConfig: RunConfig): JSRun = {
+    JSDOMNodeJSEnv.validator.validate(runConfig)
+    try {
+      internalStart(initFiles ++ codeWithJSDOMContext(input), runConfig)
+    } catch {
+      case NonFatal(t) =>
+        JSRun.failed(t)
 
-  override protected def args: immutable.Seq[String] = config.args
-
-  override protected def env: Map[String, String] = config.env
-
-  // TODO We might want to make this configurable - not sure why it isn't
-  override protected def wantSourceMap: Boolean = false
-
-  override def jsRunner(files: Seq[VirtualJSFile]): JSRunner =
-    new DOMNodeRunner(files)
-
-  override def asyncRunner(files: Seq[VirtualJSFile]): AsyncJSRunner =
-    new AsyncDOMNodeRunner(files)
-
-  override def comRunner(files: Seq[VirtualJSFile]): ComJSRunner =
-    new ComDOMNodeRunner(files)
-
-  protected class DOMNodeRunner(files: Seq[VirtualJSFile])
-      extends ExtRunner(files) with AbstractDOMNodeRunner
-
-  protected class AsyncDOMNodeRunner(files: Seq[VirtualJSFile])
-      extends AsyncExtRunner(files) with AbstractDOMNodeRunner
-
-  protected class ComDOMNodeRunner(files: Seq[VirtualJSFile])
-      extends AsyncDOMNodeRunner(files) with NodeComJSRunner
-
-  protected trait AbstractDOMNodeRunner extends AbstractNodeRunner {
-
-    protected def codeWithJSDOMContext(): Seq[VirtualJSFile] = {
-      val scriptsPaths = getScriptsJSFiles().map {
-        case file: FileVirtualFile => file.path
-        case file                  => libCache.materialize(file).getAbsolutePath
-      }
-      val scriptsURIs =
-        scriptsPaths.map(path => new java.io.File(path).toURI.toASCIIString)
-      val scriptsURIsAsJSStrings = scriptsURIs.map('"' + escapeJS(_) + '"')
-      val jsDOMCode = {
-        s"""
-           |(function () {
-           |  var jsdom;
-           |  try {
-           |    jsdom = require("jsdom/lib/old-api.js"); // jsdom >= 10.x
-           |  } catch (e) {
-           |    jsdom = require("jsdom"); // jsdom <= 9.x
-           |  }
-           |
-           |  var virtualConsole = jsdom.createVirtualConsole()
-           |    .sendTo(console, { omitJsdomErrors: true });
-           |  virtualConsole.on("jsdomError", function (error) {
-           |    /* This inelegant if + console.error is the only way I found
-           |     * to make sure the stack trace of the original error is
-           |     * printed out.
-           |     */
-           |    if (error.detail && error.detail.stack)
-           |      console.error(error.detail.stack);
-           |
-           |    // Throw the error anew to make sure the whole execution fails
-           |    throw error;
-           |  });
-           |
-           |  jsdom.env({
-           |    html: "",
-           |    url: "http://localhost/",
-           |    virtualConsole: virtualConsole,
-           |    created: function (error, window) {
-           |      if (error == null) {
-           |        window["__ScalaJSEnv"] = __ScalaJSEnv;
-           |        window["scalajsCom"] = global.scalajsCom;
-           |      } else {
-           |        throw error;
-           |      }
-           |    },
-           |    scripts: [${scriptsURIsAsJSStrings.mkString(", ")}]
-           |  });
-           |})();
-           |""".stripMargin
-      }
-      Seq(new MemVirtualJSFile("codeWithJSDOMContext.js").withContent(jsDOMCode))
+      case t: NotImplementedError =>
+        /* In Scala 2.10.x, NotImplementedError was considered fatal.
+         * We need this case for the conformance tests to pass on 2.10.
+         */
+        JSRun.failed(t)
     }
+  }
 
-    /** All the JS files that are passed to the VM.
-     *
-     *  This method can overridden to provide custom behavior in subclasses.
-     *
-     *  This method is overridden in `JSDOMNodeJSEnv` so that user-provided
-     *  JS files (excluding "init" files) are executed as *scripts* within the
-     *  jsdom environment, rather than being directly executed by the VM.
-     *
-     *  The value returned by this method in `JSDOMNodeJSEnv` is
-     *  `initFiles() ++ customInitFiles() ++ codeWithJSDOMContext()`.
-     */
-    override protected def getJSFiles(): Seq[VirtualJSFile] =
-      initFiles() ++ customInitFiles() ++ codeWithJSDOMContext()
-
-    /** JS files to be loaded via scripts in the jsdom environment.
-     *
-     *  This method can be overridden to provide a different list of scripts.
-     *
-     *  The default value in `JSDOMNodeJSEnv` is `files`.
-     */
-    protected def getScriptsJSFiles(): Seq[VirtualJSFile] =
-      files
-
-    // Send code to Stdin
-    override protected def sendVMStdin(out: OutputStream): Unit = {
-      /* Do not factor this method out into AbstractNodeRunner or when mixin in
-       * the traits it would use AbstractExtRunner.sendVMStdin due to
-       * linearization order.
-       */
-      sendJS(getJSFiles(), out)
+  def startWithCom(input: Input, runConfig: RunConfig,
+      onMessage: String => Unit): JSComRun = {
+    JSDOMNodeJSEnv.validator.validate(runConfig)
+    try {
+      ComRun.start(runConfig, onMessage) { comLoader =>
+        val files = initFiles ::: (comLoader :: codeWithJSDOMContext(input))
+        internalStart(files, runConfig)
+      }
+    } catch {
+      case t: NotImplementedError =>
+        /* In Scala 2.10.x, NotImplementedError was considered fatal.
+         * We need this case for the conformance tests to pass on 2.10.
+         * Non-fatal exceptions are already handled by ComRun.start().
+         */
+        JSComRun.failed(t)
     }
+  }
+
+  private def internalStart(files: List[VirtualBinaryFile],
+      runConfig: RunConfig): JSRun = {
+    val command = config.executable :: config.args
+    val externalConfig = ExternalJSRun.Config()
+      .withEnv(env)
+      .withRunConfig(runConfig)
+    ExternalJSRun.start(command, externalConfig)(JSDOMNodeJSEnv.write(files))
+  }
+
+  private def initFiles: List[VirtualBinaryFile] =
+    List(JSDOMNodeJSEnv.runtimeEnv, Support.fixPercentConsole)
+
+  private def env: Map[String, String] =
+    Map("NODE_MODULE_CONTEXTS" -> "0") ++ config.env
+
+  private def scriptFiles(input: Input): List[VirtualBinaryFile] = input match {
+    case Input.ScriptsToLoad(scripts) => scripts
+    case _                            => throw new UnsupportedInputException(input)
+  }
+
+  private def codeWithJSDOMContext(input: Input): List[VirtualBinaryFile] = {
+    val scriptsURIs = scriptFiles(input).map(JSDOMNodeJSEnv.materialize(_))
+    val scriptsURIsAsJSStrings =
+      scriptsURIs.map(uri => '"' + escapeJS(uri.toASCIIString) + '"')
+    val jsDOMCode = {
+      s"""
+         |(function () {
+         |  var jsdom;
+         |  try {
+         |    jsdom = require("jsdom/lib/old-api.js"); // jsdom >= 10.x
+         |  } catch (e) {
+         |    jsdom = require("jsdom"); // jsdom <= 9.x
+         |  }
+         |
+         |  var virtualConsole = jsdom.createVirtualConsole()
+         |    .sendTo(console, { omitJsdomErrors: true });
+         |  virtualConsole.on("jsdomError", function (error) {
+         |    /* This inelegant if + console.error is the only way I found
+         |     * to make sure the stack trace of the original error is
+         |     * printed out.
+         |     */
+         |    if (error.detail && error.detail.stack)
+         |      console.error(error.detail.stack);
+         |
+         |    // Throw the error anew to make sure the whole execution fails
+         |    throw error;
+         |  });
+         |
+         |  /* Work around the fast that scalajsCom.init() should delay already
+         |   * received messages to the next tick. Here we cannot tell whether
+         |   * the receive callback is called for already received messages or
+         |   * not, so we dealy *all* messages to the next tick.
+         |   */
+         |  var scalajsCom = global.scalajsCom;
+         |  var scalajsComWrapper = scalajsCom === (void 0) ? scalajsCom : ({
+         |    init: function(recvCB) {
+         |      scalajsCom.init(function(msg) {
+         |        process.nextTick(recvCB, msg);
+         |      });
+         |    },
+         |    send: function(msg) {
+         |      scalajsCom.send(msg);
+         |    }
+         |  });
+         |
+         |  jsdom.env({
+         |    html: "",
+         |    url: "http://localhost/",
+         |    virtualConsole: virtualConsole,
+         |    created: function (error, window) {
+         |      if (error == null) {
+         |        window["__ScalaJSEnv"] = __ScalaJSEnv;
+         |        window["scalajsCom"] = scalajsComWrapper;
+         |      } else {
+         |        throw error;
+         |      }
+         |    },
+         |    scripts: [${scriptsURIsAsJSStrings.mkString(", ")}]
+         |  });
+         |})();
+         |""".stripMargin
+    }
+    List(MemVirtualBinaryFile.fromStringUTF8("codeWithJSDOMContext.js", jsDOMCode))
   }
 }
 
 object JSDOMNodeJSEnv {
+  private lazy val validator = ExternalJSRun.supports(RunConfig.Validator())
+
+  private lazy val runtimeEnv = {
+    MemVirtualBinaryFile.fromStringUTF8("scalaJSEnvInfo.js",
+        """
+          |__ScalaJSEnv = {
+          |  exitFunction: function(status) { process.exit(status); }
+          |};
+        """.stripMargin
+    )
+  }
+
+  // Copied from NodeJSEnv.scala upstream
+  private def write(files: List[VirtualBinaryFile])(out: OutputStream): Unit = {
+    val p = new PrintStream(out, false, "UTF8")
+    try {
+      files.foreach {
+        case file: FileVirtualBinaryFile =>
+          val fname = file.file.getAbsolutePath
+          p.println(s"""require("${escapeJS(fname)}");""")
+        case f =>
+          val in = f.inputStream
+          try {
+            val buf = new Array[Byte](4096)
+
+            @tailrec
+            def loop(): Unit = {
+              val read = in.read(buf)
+              if (read != -1) {
+                p.write(buf, 0, read)
+                loop()
+              }
+            }
+
+            loop()
+          } finally {
+            in.close()
+          }
+
+          p.println()
+      }
+    } finally {
+      p.close()
+    }
+  }
+
+  // tmpSuffixRE and tmpFile copied from HTMLRunnerBuilder.scala in Scala.js
+
+  private val tmpSuffixRE = """[a-zA-Z0-9-_.]*$""".r
+
+  private def tmpFile(path: String, in: InputStream): URI = {
+    try {
+      /* - createTempFile requires a prefix of at least 3 chars
+       * - we use a safe part of the path as suffix so the extension stays (some
+       *   browsers need that) and there is a clue which file it came from.
+       */
+      val suffix = tmpSuffixRE.findFirstIn(path).orNull
+
+      val f = File.createTempFile("tmp-", suffix)
+      f.deleteOnExit()
+      Files.copy(in, f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+      f.toURI()
+    } finally {
+      in.close()
+    }
+  }
+
+  private def materialize(file: VirtualBinaryFile): URI = {
+    file match {
+      case file: FileVirtualFile => file.file.toURI
+      case file                  => tmpFile(file.path, file.inputStream)
+    }
+  }
+
   final class Config private (
       val executable: String,
       val args: List[String],

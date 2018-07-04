@@ -1,23 +1,42 @@
 package org.scalajs.jsenv.jsdomnodejs
 
-import org.scalajs.jsenv.test._
+import scala.concurrent.Await
 
 import org.junit.Test
-import org.junit.Assert._
 
-class JSDOMNodeJSEnvTest extends TimeoutComTests {
+import org.scalajs.io._
 
-  protected def newJSEnv: JSDOMNodeJSEnv = new JSDOMNodeJSEnv()
+import org.scalajs.jsenv._
+
+class JSDOMNodeJSEnvTest {
+
+  private val TestRunConfig = {
+    RunConfig()
+      .withInheritOut(false)
+      .withOnOutputStream((_, _) => ()) // ignore stdout
+  }
+
+  private val config = JSDOMNodeJSSuite.Config
 
   @Test
-  def historyAPI: Unit = {
-    """|console.log(window.location.href);
-       |window.history.pushState({}, "", "/foo");
-       |console.log(window.location.href);
-    """.stripMargin hasOutput
-    """|http://localhost/
-       |http://localhost/foo
-       |""".stripMargin
+  def historyAPIWithoutTestKit: Unit = {
+    assertRunSucceeds(
+        """
+        |console.log(window.location.href);
+        |window.history.pushState({}, "", "/foo");
+        |console.log(window.location.href);
+        """.stripMargin)
+  }
+
+  private def assertRunSucceeds(inputStr: String): Unit = {
+    val inputFile = MemVirtualBinaryFile.fromStringUTF8("test.js", inputStr)
+    val input = Input.ScriptsToLoad(List(inputFile))
+    val run = config.jsEnv.start(input, TestRunConfig)
+    try {
+      Await.result(run.future, config.awaitTimeout)
+    } finally {
+      run.close()
+    }
   }
 
 }
