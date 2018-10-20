@@ -36,30 +36,15 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
     } catch {
       case NonFatal(t) =>
         JSRun.failed(t)
-
-      case t: NotImplementedError =>
-        /* In Scala 2.10.x, NotImplementedError was considered fatal.
-         * We need this case for the conformance tests to pass on 2.10.
-         */
-        JSRun.failed(t)
     }
   }
 
   def startWithCom(input: Input, runConfig: RunConfig,
       onMessage: String => Unit): JSComRun = {
     JSDOMNodeJSEnv.validator.validate(runConfig)
-    try {
-      ComRun.start(runConfig, onMessage) { comLoader =>
-        val files = initFiles ::: (comLoader :: codeWithJSDOMContext(input))
-        internalStart(files, runConfig)
-      }
-    } catch {
-      case t: NotImplementedError =>
-        /* In Scala 2.10.x, NotImplementedError was considered fatal.
-         * We need this case for the conformance tests to pass on 2.10.
-         * Non-fatal exceptions are already handled by ComRun.start().
-         */
-        JSComRun.failed(t)
+    ComRun.start(runConfig, onMessage) { comLoader =>
+      val files = initFiles ::: (comLoader :: codeWithJSDOMContext(input))
+      internalStart(files, runConfig)
     }
   }
 
@@ -111,23 +96,6 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
          |    throw error;
          |  });
          |
-         |  /* Work around the fast that scalajsCom.init() should delay already
-         |   * received messages to the next tick. Here we cannot tell whether
-         |   * the receive callback is called for already received messages or
-         |   * not, so we dealy *all* messages to the next tick.
-         |   */
-         |  var scalajsCom = global.scalajsCom;
-         |  var scalajsComWrapper = scalajsCom === (void 0) ? scalajsCom : ({
-         |    init: function(recvCB) {
-         |      scalajsCom.init(function(msg) {
-         |        process.nextTick(recvCB, msg);
-         |      });
-         |    },
-         |    send: function(msg) {
-         |      scalajsCom.send(msg);
-         |    }
-         |  });
-         |
          |  jsdom.env({
          |    html: "",
          |    url: "http://localhost/",
@@ -135,7 +103,7 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
          |    created: function (error, window) {
          |      if (error == null) {
          |        window["__ScalaJSEnv"] = __ScalaJSEnv;
-         |        window["scalajsCom"] = scalajsComWrapper;
+         |        window["scalajsCom"] = global.scalajsCom;
          |      } else {
          |        throw error;
          |      }
