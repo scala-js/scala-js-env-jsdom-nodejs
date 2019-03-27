@@ -72,6 +72,11 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
     val scriptsURIs = scriptFiles(input).map(JSDOMNodeJSEnv.materialize(_))
     val scriptsURIsAsJSStrings =
       scriptsURIs.map(uri => '"' + escapeJS(uri.toASCIIString) + '"')
+    
+    val globalVarsDefs = config.exposeGlobalVars.map { v =>
+      s"""if ($v) { window["$v"] = $v; }"""
+    }
+    
     val jsDOMCode = {
       s"""
          |(function () {
@@ -104,6 +109,8 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
          |      if (error == null) {
          |        window["__ScalaJSEnv"] = __ScalaJSEnv;
          |        window["scalajsCom"] = global.scalajsCom;
+         |        
+         |        ${globalVarsDefs.mkString("\n        ")}
          |      } else {
          |        throw error;
          |      }
@@ -195,13 +202,15 @@ object JSDOMNodeJSEnv {
   final class Config private (
       val executable: String,
       val args: List[String],
-      val env: Map[String, String]
+      val env: Map[String, String],
+      val exposeGlobalVars: Set[String]
   ) {
     private def this() = {
       this(
           executable = "node",
           args = Nil,
-          env = Map.empty
+          env = Map.empty,
+        exposeGlobalVars = Set.empty[String]
       )
     }
 
@@ -214,12 +223,16 @@ object JSDOMNodeJSEnv {
     def withEnv(env: Map[String, String]): Config =
       copy(env = env)
 
+    def withExposeGlobalVars(exposeGlobalVars: Set[String]): Config =
+      copy(exposeGlobalVars = exposeGlobalVars)
+
     private def copy(
         executable: String = executable,
         args: List[String] = args,
-        env: Map[String, String] = env
+        env: Map[String, String] = env,
+        exposeGlobalVars: Set[String] = exposeGlobalVars
     ): Config = {
-      new Config(executable, args, env)
+      new Config(executable, args, env, exposeGlobalVars)
     }
   }
 
@@ -231,6 +244,7 @@ object JSDOMNodeJSEnv {
      *  - `executable`: `"node"`
      *  - `args`: `Nil`
      *  - `env`: `Map.empty`
+     *  - `exposeGlobalVars`: `Set.empty`
      */
     def apply(): Config = new Config()
   }

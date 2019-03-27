@@ -84,5 +84,8 @@ lazy val `test-project`: Project = project.
   enablePlugins(ScalaJSJUnitPlugin).
   settings(
     scalaJSUseMainModuleInitializer := true,
-    jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
+    jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv(
+      org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv.Config()
+        .withExposeGlobalVars(Set("global"))
+    )
   )
