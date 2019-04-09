@@ -31,8 +31,9 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
 
   def start(input: Input, runConfig: RunConfig): JSRun = {
     JSDOMNodeJSEnv.validator.validate(runConfig)
+    val scripts = validateInput(input)
     try {
-      internalStart(initFiles ++ codeWithJSDOMContext(input), runConfig)
+      internalStart(codeWithJSDOMContext(scripts), runConfig)
     } catch {
       case NonFatal(t) =>
         JSRun.failed(t)
@@ -42,9 +43,18 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
   def startWithCom(input: Input, runConfig: RunConfig,
       onMessage: String => Unit): JSComRun = {
     JSDOMNodeJSEnv.validator.validate(runConfig)
+    val scripts = validateInput(input)
     ComRun.start(runConfig, onMessage) { comLoader =>
-      val files = initFiles ::: (comLoader :: codeWithJSDOMContext(input))
-      internalStart(files, runConfig)
+      internalStart(comLoader :: codeWithJSDOMContext(scripts), runConfig)
+    }
+  }
+
+  private def validateInput(input: Input): List[VirtualBinaryFile] = {
+    input match {
+      case Input.ScriptsToLoad(scripts) =>
+        scripts
+      case _ =>
+        throw new UnsupportedInputException(input)
     }
   }
 
@@ -57,19 +67,13 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
     ExternalJSRun.start(command, externalConfig)(JSDOMNodeJSEnv.write(files))
   }
 
-  private def initFiles: List[VirtualBinaryFile] =
-    List(JSDOMNodeJSEnv.runtimeEnv, Support.fixPercentConsole)
-
   private def env: Map[String, String] =
     Map("NODE_MODULE_CONTEXTS" -> "0") ++ config.env
 
-  private def scriptFiles(input: Input): List[VirtualBinaryFile] = input match {
-    case Input.ScriptsToLoad(scripts) => scripts
-    case _                            => throw new UnsupportedInputException(input)
-  }
+  private def codeWithJSDOMContext(
+      scripts: List[VirtualBinaryFile]): List[VirtualBinaryFile] = {
 
-  private def codeWithJSDOMContext(input: Input): List[VirtualBinaryFile] = {
-    val scriptsURIs = scriptFiles(input).map(JSDOMNodeJSEnv.materialize(_))
+    val scriptsURIs = scripts.map(JSDOMNodeJSEnv.materialize(_))
     val scriptsURIsAsJSStrings =
       scriptsURIs.map(uri => '"' + escapeJS(uri.toASCIIString) + '"')
     val jsDOMCode = {
@@ -102,7 +106,6 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
          |    virtualConsole: virtualConsole,
          |    created: function (error, window) {
          |      if (error == null) {
-         |        window["__ScalaJSEnv"] = __ScalaJSEnv;
          |        window["scalajsCom"] = global.scalajsCom;
          |      } else {
          |        throw error;
@@ -119,16 +122,6 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
 
 object JSDOMNodeJSEnv {
   private lazy val validator = ExternalJSRun.supports(RunConfig.Validator())
-
-  private lazy val runtimeEnv = {
-    MemVirtualBinaryFile.fromStringUTF8("scalaJSEnvInfo.js",
-        """
-          |__ScalaJSEnv = {
-          |  exitFunction: function(status) { process.exit(status); }
-          |};
-        """.stripMargin
-    )
-  }
 
   // Copied from NodeJSEnv.scala upstream
   private def write(files: List[VirtualBinaryFile])(out: OutputStream): Unit = {
