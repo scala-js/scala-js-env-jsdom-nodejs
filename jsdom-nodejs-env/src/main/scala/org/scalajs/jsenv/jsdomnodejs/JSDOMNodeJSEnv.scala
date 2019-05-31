@@ -14,14 +14,15 @@ import scala.collection.immutable
 import scala.util.control.NonFatal
 
 import java.io._
-import java.nio.file.{Files, StandardCopyOption}
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, StandardCopyOption}
 import java.net.URI
 
-import org.scalajs.io._
-import org.scalajs.io.JSUtils.escapeJS
+import com.google.common.jimfs.Jimfs
 
 import org.scalajs.jsenv._
 import org.scalajs.jsenv.nodejs._
+import org.scalajs.jsenv.JSUtils.escapeJS
 
 class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
 
@@ -49,7 +50,7 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
     }
   }
 
-  private def validateInput(input: Input): List[VirtualBinaryFile] = {
+  private def validateInput(input: Input): List[Path] = {
     input match {
       case Input.ScriptsToLoad(scripts) =>
         scripts
@@ -58,8 +59,7 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
     }
   }
 
-  private def internalStart(files: List[VirtualBinaryFile],
-      runConfig: RunConfig): JSRun = {
+  private def internalStart(files: List[Path], runConfig: RunConfig): JSRun = {
     val command = config.executable :: config.args
     val externalConfig = ExternalJSRun.Config()
       .withEnv(env)
@@ -70,9 +70,7 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
   private def env: Map[String, String] =
     Map("NODE_MODULE_CONTEXTS" -> "0") ++ config.env
 
-  private def codeWithJSDOMContext(
-      scripts: List[VirtualBinaryFile]): List[VirtualBinaryFile] = {
-
+  private def codeWithJSDOMContext(scripts: List[Path]): List[Path] = {
     val scriptsURIs = scripts.map(JSDOMNodeJSEnv.materialize(_))
     val scriptsURIsAsJSStrings =
       scriptsURIs.map(uri => '"' + escapeJS(uri.toASCIIString) + '"')
@@ -116,7 +114,9 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
          |})();
          |""".stripMargin
     }
-    List(MemVirtualBinaryFile.fromStringUTF8("codeWithJSDOMContext.js", jsDOMCode))
+    List(Files.write(
+        Jimfs.newFileSystem().getPath("codeWithJSDOMContext.js"),
+        jsDOMCode.getBytes(StandardCharsets.UTF_8)))
   }
 }
 
@@ -124,34 +124,35 @@ object JSDOMNodeJSEnv {
   private lazy val validator = ExternalJSRun.supports(RunConfig.Validator())
 
   // Copied from NodeJSEnv.scala upstream
-  private def write(files: List[VirtualBinaryFile])(out: OutputStream): Unit = {
+  private def write(files: List[Path])(out: OutputStream): Unit = {
     val p = new PrintStream(out, false, "UTF8")
     try {
-      files.foreach {
-        case file: FileVirtualBinaryFile =>
-          val fname = file.file.getAbsolutePath
-          p.println(s"""require("${escapeJS(fname)}");""")
-        case f =>
-          val in = f.inputStream
-          try {
-            val buf = new Array[Byte](4096)
-
-            @tailrec
-            def loop(): Unit = {
-              val read = in.read(buf)
-              if (read != -1) {
-                p.write(buf, 0, read)
-                loop()
-              }
-            }
-
-            loop()
-          } finally {
-            in.close()
-          }
-
-          p.println()
+      def writeRunScript(path: Path): Unit = {
+        try {
+          val f = path.toFile
+          val pathJS = "\"" + escapeJS(f.getAbsolutePath) + "\""
+          p.println(s"""
+            require('vm').runInThisContext(
+              require('fs').readFileSync($pathJS, { encoding: "utf-8" }),
+              { filename: $pathJS, displayErrors: true }
+            );
+          """)
+        } catch {
+          case _: UnsupportedOperationException =>
+            val code = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+            val codeJS = "\"" + escapeJS(code) + "\""
+            val pathJS = "\"" + escapeJS(path.toString) + "\""
+            p.println(s"""
+              require('vm').runInThisContext(
+                $codeJS,
+                { filename: $pathJS, displayErrors: true }
+              );
+            """)
+        }
       }
+
+      for (file <- files)
+        writeRunScript(file)
     } finally {
       p.close()
     }
@@ -178,12 +179,14 @@ object JSDOMNodeJSEnv {
     }
   }
 
-  private def materialize(file: VirtualBinaryFile): URI = {
-    file match {
-      case file: FileVirtualFile => file.file.toURI
-      case file                  => tmpFile(file.path, file.inputStream)
+  private def materialize(path: Path): URI = {
+    try {
+      path.toFile.toURI
+    } catch {
+      case _: UnsupportedOperationException =>
+        tmpFile(path.toString, Files.newInputStream(path))
     }
-  }
+}
 
   final class Config private (
       val executable: String,
