@@ -3,9 +3,9 @@ language: scala
 scala:
   - 2.10.7
   - 2.11.12
-  - 2.12.6
+  - 2.12.8
 jdk:
-  - oraclejdk8
+  - openjdk8
 env:
   - JSDOM_VERSION=9.12.0
   - JSDOM_VERSION=10.0.0
