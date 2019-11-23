@@ -73,7 +73,7 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
   private def codeWithJSDOMContext(scripts: List[Path]): List[Path] = {
     val scriptsURIs = scripts.map(JSDOMNodeJSEnv.materialize(_))
     val scriptsURIsAsJSStrings =
-      scriptsURIs.map(uri => '"' + escapeJS(uri.toASCIIString) + '"')
+      scriptsURIs.map(uri => "\"" + escapeJS(uri.toASCIIString) + "\"")
     val jsDOMCode = {
       s"""
          |(function () {
