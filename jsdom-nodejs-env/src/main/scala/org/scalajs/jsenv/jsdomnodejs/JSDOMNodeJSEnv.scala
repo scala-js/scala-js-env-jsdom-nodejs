@@ -30,7 +30,7 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
 
   val name: String = "Node.js with JSDOM"
 
-  def start(input: Input, runConfig: RunConfig): JSRun = {
+  def start(input: Seq[Input], runConfig: RunConfig): JSRun = {
     JSDOMNodeJSEnv.validator.validate(runConfig)
     val scripts = validateInput(input)
     try {
@@ -41,7 +41,7 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
     }
   }
 
-  def startWithCom(input: Input, runConfig: RunConfig,
+  def startWithCom(input: Seq[Input], runConfig: RunConfig,
       onMessage: String => Unit): JSComRun = {
     JSDOMNodeJSEnv.validator.validate(runConfig)
     val scripts = validateInput(input)
@@ -50,13 +50,14 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
     }
   }
 
-  private def validateInput(input: Input): List[Path] = {
-    input match {
-      case Input.ScriptsToLoad(scripts) =>
-        scripts
+  private def validateInput(input: Seq[Input]): List[Path] = {
+    input.map {
+      case Input.Script(script) =>
+        script
+
       case _ =>
         throw new UnsupportedInputException(input)
-    }
+    }.toList
   }
 
   private def internalStart(files: List[Path], runConfig: RunConfig): JSRun = {
