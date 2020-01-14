@@ -9,10 +9,11 @@ jdk:
 env:
   - JSDOM_VERSION=9.12.0
   - JSDOM_VERSION=10.0.0
+  - JSDOM_VERSION=16.0.0
 install:
   # We need a recent version of Node.js for jsdom
-  - nvm install 6
-  - nvm use 6
+  - nvm install 12
+  - nvm use 12
   - node --version
   # Of course we need jsdom
   - npm install jsdom@$JSDOM_VERSION
