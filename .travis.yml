@@ -9,19 +9,17 @@ jdk:
 env:
   - JSDOM_VERSION=9.12.0
   - JSDOM_VERSION=10.0.0
+  - JSDOM_VERSION=16.0.0
 install:
   # We need a recent version of Node.js for jsdom
-  - nvm install 6
-  - nvm use 6
+  - nvm install 12
+  - nvm use 12
   - node --version
   # Of course we need jsdom
   - npm install jsdom@$JSDOM_VERSION
 script:
   - sbt ++$TRAVIS_SCALA_VERSION scalajs-env-jsdom-nodejs/test scalajs-env-jsdom-nodejs/doc
-  - |
-      if [[ "${TRAVIS_SCALA_VERSION}" != "2.10.7" ]]; then
-        sbt ++$TRAVIS_SCALA_VERSION test-project/run test-project/test
-      fi
+  - sbt ++$TRAVIS_SCALA_VERSION test-project/run test-project/test
 cache:
   directories:
     - $HOME/.ivy2/cache
