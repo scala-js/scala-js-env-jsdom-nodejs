@@ -7,7 +7,6 @@ scala:
 jdk:
   - openjdk8
 env:
-  - JSDOM_VERSION=9.12.0
   - JSDOM_VERSION=10.0.0
   - JSDOM_VERSION=16.0.0
 install:
