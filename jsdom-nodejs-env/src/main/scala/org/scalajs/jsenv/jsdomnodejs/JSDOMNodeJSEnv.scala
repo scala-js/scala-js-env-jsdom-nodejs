@@ -84,6 +84,15 @@ class JSDOMNodeJSEnv(config: JSDOMNodeJSEnv.Config) extends JSEnv {
          |  var virtualConsole = new jsdom.VirtualConsole()
          |    .sendTo(console, { omitJSDOMErrors: true });
          |  virtualConsole.on("jsdomError", function (error) {
+         |    /* #42 Counter-hack the hack that React's development mode uses
+         |     * to bypass browsers' debugging tools. If we detect that we are
+         |     * called from that hack, we do nothing.
+         |     */
+         |    var isWithinReactsInvokeGuardedCallbackDevHack_issue42 =
+         |      new Error("").stack.indexOf("invokeGuardedCallbackDev") >= 0;
+         |    if (isWithinReactsInvokeGuardedCallbackDevHack_issue42)
+         |      return;
+         |
          |    try {
          |      // Display as much info about the error as possible
          |      if (error.detail && error.detail.stack) {

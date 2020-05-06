@@ -75,7 +75,15 @@ lazy val `scalajs-env-jsdom-nodejs`: Project = project.in(file("jsdom-nodejs-env
       "org.scala-js" %% "scalajs-env-nodejs" % scalaJSVersion,
 
       "com.novocode" % "junit-interface" % "0.11" % "test",
-      "org.scala-js" %% "scalajs-js-envs-test-kit" % scalaJSVersion % "test"
+      "org.scala-js" %% "scalajs-js-envs-test-kit" % scalaJSVersion % "test",
+
+      /* See JSDOMNodeJSEnvTest.reactUnhandledExceptionHack.
+       * We use intransitive() because we do not need the transitive
+       * dependencies of these webjars, and one of them actually fails to
+       * resolve (see https://github.com/webjars/webjars/issues/1789).
+       */
+      "org.webjars.npm" % "react" % "16.13.1" % "test" intransitive(),
+      "org.webjars.npm" % "react-dom" % "16.13.1" % "test" intransitive(),
     )
   )
 
