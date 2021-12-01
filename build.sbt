@@ -8,7 +8,7 @@ inThisBuild(Seq(
 
   homepage := Some(url("https://www.scala-js.org/")),
   licenses += ("BSD New",
-      url("https://github.com/scala-js/scala-js-env-jsdom-nodejs/blob/master/LICENSE")),
+      url("https://github.com/scala-js/scala-js-env-jsdom-nodejs/blob/main/LICENSE")),
   scmInfo := Some(ScmInfo(
       url("https://github.com/scala-js/scala-js-env-jsdom-nodejs"),
       "scm:git:git@github.com:scala-js/scala-js-env-jsdom-nodejs.git",
