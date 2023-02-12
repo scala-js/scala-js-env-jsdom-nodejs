@@ -13,17 +13,24 @@ jobs:
       fail-fast: false
       matrix:
         scalaversion: ["2.11.12", "2.12.10", "2.13.1"]
-        jsdomversion: ["10.0.0", "16.0.0"]
+        jsdomversion: ["10.0.0", "16.0.0", "21.0.0"]
+        include:
+          - jsdomversion: 10.0.0
+            nodeversion: 12
+          - jsdomversion: 16.0.0
+            nodeversion: 12
+          - jsdomversion: 21.0.0
+            nodeversion: 14
     steps:
       - uses: actions/checkout@v2
       - uses: olafurpg/setup-scala@v10
         with:
           java-version: "adopt@1.8"
       - uses: coursier/cache-action@v5
-      - name: Use Node.js 12
+      - name: Use Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: 12
+          node-version: "${{ matrix.nodeversion }}"
       - name: Install jsdom
         env:
           V: ${{ matrix.jsdomversion }}
