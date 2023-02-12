@@ -25,7 +25,9 @@ jobs:
         with:
           node-version: 12
       - name: Install jsdom
-        run: npm install "jsdom@${{ matrix.jsdomversion }}"
+        env:
+          V: ${{ matrix.jsdomversion }}
+        run: (cd jsdom-$V && npm ci) && ln -s jsdom-$V/node_modules
       - name: Unit tests
         run: sbt "++${{ matrix.scalaversion }}" scalajs-env-jsdom-nodejs/test
       - name: Doc generation
