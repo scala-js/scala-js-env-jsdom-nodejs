@@ -22,13 +22,15 @@ jobs:
           - jsdomversion: 21.0.0
             nodeversion: 14
     steps:
-      - uses: actions/checkout@v2
-      - uses: olafurpg/setup-scala@v10
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
-          java-version: "adopt@1.8"
-      - uses: coursier/cache-action@v5
+          java-version: 8
+          distribution: adopt
+      - uses: sbt/setup-sbt@v1
+      - uses: coursier/cache-action@v6
       - name: Use Node.js
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v5
         with:
           node-version: "${{ matrix.nodeversion }}"
       - name: Install jsdom
