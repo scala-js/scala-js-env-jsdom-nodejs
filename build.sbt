@@ -46,13 +46,9 @@ val commonSettings = Def.settings(
 )
 
 lazy val root: Project = project.in(file(".")).
+  aggregate(`scalajs-env-jsdom-nodejs`, `test-project`).
   settings(
     publish / skip := true,
-
-    clean := clean.dependsOn(
-      `scalajs-env-jsdom-nodejs` / clean,
-      `test-project` / clean,
-    ).value
   )
 
 lazy val `scalajs-env-jsdom-nodejs`: Project = project.in(file("jsdom-nodejs-env")).
