@@ -56,13 +56,13 @@ val commonSettings = Def.settings(
 
 lazy val root: Project = project.in(file(".")).
   settings(
-    publishArtifact in Compile := false,
+    Compile / publishArtifact := false,
     publish := {},
     publishLocal := {},
 
     clean := clean.dependsOn(
-      clean in `scalajs-env-jsdom-nodejs`,
-      clean in `test-project`
+      `scalajs-env-jsdom-nodejs` / clean,
+      `test-project` / clean,
     ).value
   )
 
