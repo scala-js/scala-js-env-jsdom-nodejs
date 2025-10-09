@@ -11,7 +11,8 @@ inThisBuild(Seq(
   scmInfo := Some(ScmInfo(
       url("https://github.com/scala-js/scala-js-env-jsdom-nodejs"),
       "scm:git:git@github.com:scala-js/scala-js-env-jsdom-nodejs.git",
-      Some("scm:git:git@github.com:scala-js/scala-js-env-jsdom-nodejs.git")))
+      Some("scm:git:git@github.com:scala-js/scala-js-env-jsdom-nodejs.git"))),
+  versionScheme := Some("semver-spec"),
 ))
 
 val commonSettings = Def.settings(
