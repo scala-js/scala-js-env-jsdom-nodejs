@@ -1,5 +1,4 @@
 inThisBuild(Seq(
-  version := "1.1.1-SNAPSHOT",
   organization := "org.scala-js",
 
   crossScalaVersions := Seq("2.12.10", "2.11.12", "2.13.1"),
@@ -24,14 +23,6 @@ val commonSettings = Def.settings(
   },
   autoAPIMappings := true,
 
-  publishMavenStyle := true,
-  publishTo := {
-    val nexus = "https://oss.sonatype.org/"
-    if (isSnapshot.value)
-      Some("snapshots" at nexus + "content/repositories/snapshots")
-    else
-      Some("releases" at nexus + "service/local/staging/deploy/maven2")
-  },
   pomExtra := (
     <developers>
       <developer>
@@ -56,9 +47,7 @@ val commonSettings = Def.settings(
 
 lazy val root: Project = project.in(file(".")).
   settings(
-    Compile / publishArtifact := false,
-    publish := {},
-    publishLocal := {},
+    publish / skip := true,
 
     clean := clean.dependsOn(
       `scalajs-env-jsdom-nodejs` / clean,
@@ -91,6 +80,7 @@ lazy val `test-project`: Project = project.
   enablePlugins(ScalaJSPlugin).
   enablePlugins(ScalaJSJUnitPlugin).
   settings(
+    publish / skip := true,
     scalaJSUseMainModuleInitializer := true,
     jsEnv := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv()
   )
